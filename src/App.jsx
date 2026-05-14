@@ -9,6 +9,7 @@ import LoginPage, { cerrarSesionAdmin, haySesionAdmin } from "./pages/LoginPage"
 
 function App() {
   const [activePage, setActivePage] = useState("inicio");
+  const [activeNav, setActiveNav] = useState("inicio");
   const [menuOpen, setMenuOpen] = useState(false);
   const [pathname, setPathname] = useState(() => window.location.pathname);
   const [adminAuth, setAdminAuth] = useState(() => haySesionAdmin());
@@ -20,13 +21,37 @@ function App() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
+  const scrollToSection = (sectionId) => {
+    const section = document.getElementById(sectionId);
+
+    if (!section) {
+      return;
+    }
+
+    const navHeight = document.getElementById("navbar")?.offsetHeight || 0;
+    const top = section.getBoundingClientRect().top + window.scrollY - navHeight - 16;
+
+    window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+  };
+
   const navigateTo = (page) => {
     if (pathname !== "/") {
       window.history.pushState({}, "", "/");
       setPathname("/");
     }
 
+    if (page === "nosotros") {
+      setActivePage("inicio");
+      setActiveNav("nosotros");
+      setMenuOpen(false);
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => scrollToSection("nosotros"));
+      });
+      return;
+    }
+
     setActivePage(page);
+    setActiveNav(page);
     setMenuOpen(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -35,6 +60,7 @@ function App() {
     window.history.pushState({}, "", "/");
     setPathname("/");
     setActivePage("inicio");
+    setActiveNav("inicio");
     setMenuOpen(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -55,7 +81,7 @@ function App() {
   return (
     <>
       <Header
-        activePage={activePage}
+        activePage={activeNav}
         menuOpen={menuOpen}
         onToggleMenu={() => setMenuOpen((isOpen) => !isOpen)}
         onNavigate={navigateTo}

@@ -27,18 +27,20 @@ export default function ProductCard({ product, liked, onToggleLike }) {
         {product.destacado && (
           <span className="product-card__badge product-card__badge--new">DESTACADO</span>
         )}
-        {product.imagenUrl && !imageError ? (
-          <img
-            src={product.imagenUrl}
-            alt={product.nombre}
-            className="product-card__image"
-            loading="lazy"
-            decoding="async"
-            onError={() => setImageError(true)}
-          />
-        ) : (
-          <span className="product-card__image-placeholder">Sin imagen</span>
-        )}
+        <div className="product-card__image-frame">
+          {product.imagenUrl && !imageError ? (
+            <img
+              src={product.imagenUrl}
+              alt={product.nombre}
+              className="product-card__image"
+              loading="lazy"
+              decoding="async"
+              onError={() => setImageError(true)}
+            />
+          ) : (
+            <span className="product-card__image-placeholder">Sin imagen</span>
+          )}
+        </div>
       </div>
       <div className="product-card__body">
         <div className="product-card__info">

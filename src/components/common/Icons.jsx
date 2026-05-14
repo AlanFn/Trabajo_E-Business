@@ -44,6 +44,32 @@ export function InstagramSmallIcon() {
   );
 }
 
+export function FacebookIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M14 8.5V6.7c0-.8.6-1.2 1.3-1.2h1.9V2.2C16.9 2.1 15.8 2 14.6 2c-2.8 0-4.7 1.7-4.7 4.7v1.8H6.8V12h3.1v10h3.8V12h3.1l.5-3.5H14z" />
+    </svg>
+  );
+}
+
+export function TikTokIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M15.7 2c.3 2.3 1.7 3.8 4 4v3.6a7.8 7.8 0 0 1-4-1.2v6.8c0 4.3-2.9 6.8-6.3 6.8A6.1 6.1 0 0 1 3.3 16c0-3.9 3.4-6.7 7.3-5.9v3.7c-1.7-.5-3.5.6-3.5 2.3 0 1.4 1 2.4 2.4 2.4 1.5 0 2.5-.9 2.5-3V2h3.7z" />
+    </svg>
+  );
+}
+
+export function ThreadsIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M16.8 9.4c-.5-2.4-2.2-3.8-4.8-3.8-3.4 0-5.6 2.6-5.6 6.4 0 4 2.3 6.5 5.8 6.5 2.9 0 5.1-1.6 5.1-3.9 0-2-1.6-3.2-4.6-3.2h-1.2" />
+      <path d="M11.6 13.1c-1.2 0-2 .6-2 1.5 0 1 .8 1.6 2.1 1.6 1.6 0 2.6-.9 2.6-2.3v-.9" />
+      <path d="M18.9 12.5c1.2.6 2.1 1.6 2.1 3.1 0 3.5-3.7 6.1-8.8 6.1C6.6 21.7 3 18 3 12S6.6 2.3 12.1 2.3c4.5 0 7.6 2.4 8.5 6.3" />
+    </svg>
+  );
+}
+
 export function ZoomIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
