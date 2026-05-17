@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { useCart } from "../../context/CartContext";
 import { getColorHex } from "../../data/filtros";
-import { HeartIcon } from "../common/Icons";
-import WhatsAppButton from "./WhatsAppButton";
+import { formatearPrecioGs } from "../../utils/precios";
+import { normalizarImagenesProducto } from "../../utils/productoMedia";
+import { CartIcon, ChevronLeftIcon, ChevronRightIcon, HeartIcon } from "../common/Icons";
 
 const stockLabels = {
   disponible: "Disponible",
@@ -9,17 +11,53 @@ const stockLabels = {
   agotado: "Agotado",
 };
 
-export default function ProductCard({ product, liked, onToggleLike }) {
-  const [selectedColor, setSelectedColor] = useState("");
-  const [selectedTalle, setSelectedTalle] = useState("");
-  const [imageError, setImageError] = useState(false);
+export default function ProductCard({ product, liked, onToggleLike, coloresGlobales = [] }) {
+  const { addProduct } = useCart();
+  const imagenes = normalizarImagenesProducto(product);
+  const [currentImage, setCurrentImage] = useState(0);
+  const [failedImages, setFailedImages] = useState(() => new Set());
+  const [selectedColor, setSelectedColor] = useState(product.colores[0] || "");
+  const [selectedTalle, setSelectedTalle] = useState(product.talles[0] || "");
+  const [quantity, setQuantity] = useState(1);
 
   const hasColors = product.colores.length > 0;
   const hasTalles = product.talles.length > 0;
+  const hasMultipleImages = imagenes.length > 1;
+  const currentImageUrl = imagenes[currentImage] || "";
+  const imageHasError = failedImages.has(currentImageUrl);
 
   useEffect(() => {
-    setImageError(false);
-  }, [product.imagenUrl]);
+    setCurrentImage(0);
+    setFailedImages(new Set());
+    setSelectedColor(product.colores[0] || "");
+    setSelectedTalle(product.talles[0] || "");
+    setQuantity(1);
+  }, [product.id, product.imagenUrl, product.imagenes, product.colores, product.talles]);
+
+  const goToImage = (step) => {
+    if (!imagenes.length) return;
+    setCurrentImage((current) => (current + step + imagenes.length) % imagenes.length);
+  };
+
+  const markImageError = () => {
+    setFailedImages((current) => {
+      const next = new Set(current);
+      next.add(currentImageUrl);
+      return next;
+    });
+  };
+
+  const updateQuantity = (step) => {
+    setQuantity((current) => Math.max(1, current + step));
+  };
+
+  const handleAddToCart = () => {
+    addProduct(product, {
+      color: hasColors ? selectedColor || product.colores[0] : "",
+      talle: hasTalles ? selectedTalle || product.talles[0] : "",
+      cantidad: quantity,
+    });
+  };
 
   return (
     <article className="product-card">
@@ -28,19 +66,33 @@ export default function ProductCard({ product, liked, onToggleLike }) {
           <span className="product-card__badge product-card__badge--new">DESTACADO</span>
         )}
         <div className="product-card__image-frame">
-          {product.imagenUrl && !imageError ? (
+          {currentImageUrl && !imageHasError ? (
             <img
-              src={product.imagenUrl}
+              src={currentImageUrl}
               alt={product.nombre}
               className="product-card__image"
               loading="lazy"
               decoding="async"
-              onError={() => setImageError(true)}
+              onError={markImageError}
             />
           ) : (
             <span className="product-card__image-placeholder">Sin imagen</span>
           )}
         </div>
+
+        {hasMultipleImages && (
+          <div className="product-card__gallery-controls">
+            <button type="button" onClick={() => goToImage(-1)} aria-label="Imagen anterior">
+              <ChevronLeftIcon />
+            </button>
+            <span>
+              {currentImage + 1} / {imagenes.length}
+            </span>
+            <button type="button" onClick={() => goToImage(1)} aria-label="Imagen siguiente">
+              <ChevronRightIcon />
+            </button>
+          </div>
+        )}
       </div>
       <div className="product-card__body">
         <div className="product-card__info">
@@ -48,29 +100,32 @@ export default function ProductCard({ product, liked, onToggleLike }) {
           <button
             className={`product-card__wishlist-inline${liked ? " is-liked" : ""}`}
             type="button"
-            aria-label="Favoritos"
+            aria-label={liked ? "Quitar de favoritos" : "Agregar a favoritos"}
+            aria-pressed={liked}
             onClick={onToggleLike}
           >
             <HeartIcon />
           </button>
         </div>
         <p className="product-card__sub">{product.descripcionCorta}</p>
+        <p className="product-card__price">{formatearPrecioGs(product.precio)}</p>
 
         {hasColors && (
           <div className="product-card__colors" aria-label="Colores disponibles">
             {product.colores.map((color) => (
               <button
-                className="product-card__color"
-                style={{
-                  background: getColorHex(color),
-                  outlineColor: selectedColor === color ? "rgba(0,0,0,0.45)" : "transparent",
-                }}
-                title={color}
+                className={`product-card__color-option${selectedColor === color ? " is-selected" : ""}`}
                 type="button"
-                aria-label={`Color ${color}`}
-                onClick={() => setSelectedColor((current) => (current === color ? "" : color))}
+                onClick={() => setSelectedColor(color)}
                 key={color}
-              />
+              >
+                <span
+                  className="product-card__color"
+                  style={{ background: getColorHex(color, coloresGlobales) }}
+                  aria-hidden="true"
+                />
+                <span>{color}</span>
+              </button>
             ))}
           </div>
         )}
@@ -83,7 +138,7 @@ export default function ProductCard({ product, liked, onToggleLike }) {
                   selectedTalle === talle ? " catalog-filters__size--active" : ""
                 }`}
                 type="button"
-                onClick={() => setSelectedTalle((current) => (current === talle ? "" : talle))}
+                onClick={() => setSelectedTalle(talle)}
                 key={talle}
               >
                 {talle}
@@ -95,11 +150,19 @@ export default function ProductCard({ product, liked, onToggleLike }) {
         <p className="product-card__sub">{stockLabels[product.estadoStock]}</p>
 
         <div className="product-card__footer">
-          <WhatsAppButton
-            product={product}
-            selectedColor={selectedColor}
-            selectedTalle={selectedTalle}
-          />
+          <div className="quantity-stepper" aria-label="Cantidad">
+            <button type="button" onClick={() => updateQuantity(-1)} aria-label="Disminuir cantidad">
+              -
+            </button>
+            <span>{quantity}</span>
+            <button type="button" onClick={() => updateQuantity(1)} aria-label="Aumentar cantidad">
+              +
+            </button>
+          </div>
+          <button className="product-card__add" type="button" onClick={handleAddToCart}>
+            <CartIcon />
+            Agregar al carrito
+          </button>
         </div>
       </div>
     </article>

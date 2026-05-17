@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import Footer from "./components/layout/Footer";
 import Header from "./components/layout/Header";
+import CartDrawer from "./components/cart/CartDrawer";
+import { CartProvider } from "./context/CartContext";
 import AdminProductsPage from "./pages/AdminProductsPage";
 import CatalogPage from "./pages/CatalogPage";
 import ContactPage from "./pages/ContactPage";
@@ -8,18 +10,40 @@ import HomePage from "./pages/HomePage";
 import LoginPage, { cerrarSesionAdmin, haySesionAdmin } from "./pages/LoginPage";
 
 function App() {
-  const [activePage, setActivePage] = useState("inicio");
-  const [activeNav, setActiveNav] = useState("inicio");
   const [menuOpen, setMenuOpen] = useState(false);
-  const [pathname, setPathname] = useState(() => window.location.pathname);
+  const [route, setRoute] = useState(() => ({
+    pathname: window.location.pathname,
+    hash: window.location.hash,
+  }));
   const [adminAuth, setAdminAuth] = useState(() => haySesionAdmin());
 
   useEffect(() => {
-    const handlePopState = () => setPathname(window.location.pathname);
+    const syncRoute = () =>
+      setRoute({
+        pathname: window.location.pathname,
+        hash: window.location.hash,
+      });
 
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
+    window.addEventListener("popstate", syncRoute);
+    window.addEventListener("hashchange", syncRoute);
+    return () => {
+      window.removeEventListener("popstate", syncRoute);
+      window.removeEventListener("hashchange", syncRoute);
+    };
   }, []);
+
+  useEffect(() => {
+    if (route.pathname === "/" && route.hash === "#nosotros") {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => scrollToSection("nosotros"));
+      });
+    }
+  }, [route.pathname, route.hash]);
+
+  const pathname = route.pathname;
+  const activePage =
+    pathname === "/catalogo" ? "catalogo" : pathname === "/contacto" ? "contacto" : "inicio";
+  const activeNav = pathname === "/" && route.hash === "#nosotros" ? "nosotros" : activePage;
 
   const scrollToSection = (sectionId) => {
     const section = document.getElementById(sectionId);
@@ -35,14 +59,9 @@ function App() {
   };
 
   const navigateTo = (page) => {
-    if (pathname !== "/") {
-      window.history.pushState({}, "", "/");
-      setPathname("/");
-    }
-
     if (page === "nosotros") {
-      setActivePage("inicio");
-      setActiveNav("nosotros");
+      window.history.pushState({}, "", "/#nosotros");
+      setRoute({ pathname: "/", hash: "#nosotros" });
       setMenuOpen(false);
       window.requestAnimationFrame(() => {
         window.requestAnimationFrame(() => scrollToSection("nosotros"));
@@ -50,17 +69,22 @@ function App() {
       return;
     }
 
-    setActivePage(page);
-    setActiveNav(page);
+    const rutas = {
+      inicio: "/",
+      catalogo: "/catalogo",
+      contacto: "/contacto",
+    };
+    const nextPath = rutas[page] || "/";
+
+    window.history.pushState({}, "", nextPath);
+    setRoute({ pathname: nextPath, hash: "" });
     setMenuOpen(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const navigateToPublicSite = () => {
     window.history.pushState({}, "", "/");
-    setPathname("/");
-    setActivePage("inicio");
-    setActiveNav("inicio");
+    setRoute({ pathname: "/", hash: "" });
     setMenuOpen(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -79,7 +103,7 @@ function App() {
   }
 
   return (
-    <>
+    <CartProvider>
       <Header
         activePage={activeNav}
         menuOpen={menuOpen}
@@ -89,8 +113,9 @@ function App() {
       {activePage === "inicio" && <HomePage />}
       {activePage === "catalogo" && <CatalogPage />}
       {activePage === "contacto" && <ContactPage />}
+      <CartDrawer />
       <Footer onNavigate={navigateTo} />
-    </>
+    </CartProvider>
   );
 }
 

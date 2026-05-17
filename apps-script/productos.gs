@@ -2,6 +2,7 @@ const ADMIN_API_TOKEN = "CAMBIAR_POR_UN_TOKEN_SEGURO";
 
 const NOMBRE_HOJA_PRODUCTOS = "productos";
 const NOMBRE_HOJA_ELIMINADOS = "productos_eliminados";
+const NOMBRE_HOJA_COLORES = "colores";
 
 const COLUMNAS_REQUERIDAS = [
   "id",
@@ -17,9 +18,11 @@ const COLUMNAS_REQUERIDAS = [
   "caracteristicas",
   "propiedades",
   "estadoStock",
+  "precio",
   "activo",
   "destacado",
   "imagenUrl",
+  "imagenes",
   "fechaCreacion",
   "fechaActualizacion",
 ];
@@ -31,6 +34,17 @@ const CAMPOS_ARRAY = [
   "medidas",
   "caracteristicas",
   "propiedades",
+  "imagenes",
+];
+
+const COLUMNAS_COLORES = [
+  "id",
+  "nombre",
+  "slug",
+  "hex",
+  "activo",
+  "fechaCreacion",
+  "fechaActualizacion",
 ];
 
 function doPost(e) {
@@ -46,6 +60,10 @@ function doPost(e) {
       return listarProductos();
     }
 
+    if (accion === "listarColores") {
+      return listarColores();
+    }
+
     if (!validarToken(payload.token)) {
       return responderJSON({ ok: false, error: "Token inválido o faltante." });
     }
@@ -55,6 +73,10 @@ function doPost(e) {
     if (accion === "ocultar") return cambiarEstadoActivo(payload.id, false);
     if (accion === "reactivar") return cambiarEstadoActivo(payload.id, true);
     if (accion === "eliminarDefinitivo") return eliminarProductoDefinitivo(payload.id);
+    if (accion === "crearColor") return crearColor(payload.color);
+    if (accion === "editarColor") return editarColor(payload.id || payload.slug, payload.color);
+    if (accion === "ocultarColor") return cambiarEstadoColor(payload.id || payload.slug, false);
+    if (accion === "reactivarColor") return cambiarEstadoColor(payload.id || payload.slug, true);
 
     return responderJSON({ ok: false, error: "Acción no reconocida: " + accion });
   } catch (error) {
@@ -71,6 +93,10 @@ function doGet(e) {
 
     if (accion === "listar") {
       return listarProductos();
+    }
+
+    if (accion === "listarColores") {
+      return listarColores();
     }
 
     return responderJSON({ ok: true, mensaje: "API de productos activa." });
@@ -103,6 +129,133 @@ function listarProductos() {
     });
 
   return responderJSON({ ok: true, productos: productos });
+}
+
+function listarColores() {
+  const hoja = obtenerHojaColores();
+  const encabezados = obtenerEncabezadosColores(hoja);
+  const ultimaFila = hoja.getLastRow();
+
+  if (ultimaFila < 2) {
+    return responderJSON({ ok: true, colores: [] });
+  }
+
+  const filas = hoja.getRange(2, 1, ultimaFila - 1, encabezados.length).getValues();
+  const colores = filas
+    .filter(function (fila) {
+      return fila.some(function (celda) {
+        return celda !== "";
+      });
+    })
+    .map(function (fila) {
+      return filaAColor(encabezados, fila);
+    })
+    .filter(function (color) {
+      return color.activo === true;
+    });
+
+  return responderJSON({ ok: true, colores: colores });
+}
+
+function crearColor(color) {
+  if (!color || typeof color !== "object") {
+    return responderJSON({ ok: false, error: "Falta el color a crear." });
+  }
+
+  const nombre = String(color.nombre || "").trim();
+  const hex = String(color.hex || "").trim();
+
+  if (!nombre) {
+    return responderJSON({ ok: false, error: "El color debe tener nombre." });
+  }
+
+  if (!validarHexColor(hex)) {
+    return responderJSON({ ok: false, error: "El color visual debe ser un hex válido." });
+  }
+
+  const hoja = obtenerHojaColores();
+  const encabezados = obtenerEncabezadosColores(hoja);
+  const slug = generarSlugTexto(color.slug || nombre);
+  const filaExistente = buscarFilaPorCampo(hoja, encabezados, "slug", slug);
+
+  if (filaExistente !== -1) {
+    const filaActual = hoja.getRange(filaExistente, 1, 1, encabezados.length).getValues()[0];
+    return responderJSON({ ok: true, color: filaAColor(encabezados, filaActual) });
+  }
+
+  const colorNuevo = {
+    id: slug,
+    nombre: nombre,
+    slug: slug,
+    hex: hex,
+    activo: true,
+  };
+  const fila = colorAFila(colorNuevo, encabezados, null);
+  hoja.appendRow(fila);
+
+  return responderJSON({ ok: true, color: filaAColor(encabezados, fila) });
+}
+
+function editarColor(idOSlug, color) {
+  if (!idOSlug) {
+    return responderJSON({ ok: false, error: "Falta el id o slug del color." });
+  }
+
+  if (!color || typeof color !== "object") {
+    return responderJSON({ ok: false, error: "Faltan los datos del color a editar." });
+  }
+
+  const hoja = obtenerHojaColores();
+  const encabezados = obtenerEncabezadosColores(hoja);
+  const numeroFila = buscarFilaColorPorIdOSlug(hoja, encabezados, idOSlug);
+
+  if (numeroFila === -1) {
+    return responderJSON({ ok: false, error: "No existe un color con ese id o slug." });
+  }
+
+  if (color.hex !== undefined && !validarHexColor(color.hex)) {
+    return responderJSON({ ok: false, error: "El color visual debe ser un hex válido." });
+  }
+
+  const filaActual = hoja.getRange(numeroFila, 1, 1, encabezados.length).getValues()[0];
+  const colorExistente = filaAColor(encabezados, filaActual);
+  const nombre = color.nombre !== undefined ? String(color.nombre).trim() : colorExistente.nombre;
+  const slug = color.slug !== undefined || color.nombre !== undefined
+    ? generarSlugTexto(color.slug || nombre)
+    : colorExistente.slug;
+  const colorActualizado = Object.assign({}, colorExistente, color, {
+    id: slug,
+    nombre: nombre,
+    slug: slug,
+  });
+  const nuevaFila = colorAFila(colorActualizado, encabezados, colorExistente);
+
+  hoja.getRange(numeroFila, 1, 1, encabezados.length).setValues([nuevaFila]);
+
+  return responderJSON({ ok: true, color: filaAColor(encabezados, nuevaFila) });
+}
+
+function cambiarEstadoColor(idOSlug, activo) {
+  if (!idOSlug) {
+    return responderJSON({ ok: false, error: "Falta el id o slug del color." });
+  }
+
+  const hoja = obtenerHojaColores();
+  const encabezados = obtenerEncabezadosColores(hoja);
+  const numeroFila = buscarFilaColorPorIdOSlug(hoja, encabezados, idOSlug);
+
+  if (numeroFila === -1) {
+    return responderJSON({ ok: false, error: "No existe un color con ese id o slug." });
+  }
+
+  const filaActual = hoja.getRange(numeroFila, 1, 1, encabezados.length).getValues()[0];
+  const colorExistente = filaAColor(encabezados, filaActual);
+  const colorActualizado = Object.assign({}, colorExistente, { activo: activo });
+  const nuevaFila = colorAFila(colorActualizado, encabezados, colorExistente);
+
+  hoja.getRange(numeroFila, 1, 1, encabezados.length).setValues([nuevaFila]);
+
+  return responderJSON({ ok: true, color: filaAColor(encabezados, nuevaFila) });
 }
 
 function crearProducto(producto) {
@@ -251,6 +404,18 @@ function obtenerHojaProductos() {
   return hoja;
 }
 
+function obtenerHojaColores() {
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  let hoja = spreadsheet.getSheetByName(NOMBRE_HOJA_COLORES);
+
+  if (!hoja) {
+    hoja = spreadsheet.insertSheet(NOMBRE_HOJA_COLORES);
+    hoja.appendRow(COLUMNAS_COLORES);
+  }
+
+  return hoja;
+}
+
 function obtenerEncabezados(hoja) {
   const ultimaColumna = hoja.getLastColumn();
 
@@ -272,6 +437,29 @@ function obtenerEncabezados(hoja) {
   if (faltantes.length > 0) {
     throw new Error("Faltan columnas requeridas: " + faltantes.join(", "));
   }
+
+  return encabezados;
+}
+
+function obtenerEncabezadosColores(hoja) {
+  if (hoja.getLastRow() === 0 || hoja.getLastColumn() === 0) {
+    hoja.appendRow(COLUMNAS_COLORES);
+    return COLUMNAS_COLORES.slice();
+  }
+
+  const encabezados = hoja
+    .getRange(1, 1, 1, hoja.getLastColumn())
+    .getValues()[0]
+    .map(function (valor) {
+      return String(valor).trim();
+    });
+
+  COLUMNAS_COLORES.forEach(function (columna) {
+    if (encabezados.indexOf(columna) === -1) {
+      hoja.getRange(1, encabezados.length + 1).setValue(columna);
+      encabezados.push(columna);
+    }
+  });
 
   return encabezados;
 }
@@ -303,6 +491,28 @@ function filaAProducto(encabezados, fila) {
   return producto;
 }
 
+function filaAColor(encabezados, fila) {
+  const color = {};
+
+  encabezados.forEach(function (encabezado, index) {
+    const valor = fila[index];
+
+    if (encabezado === "activo") {
+      color[encabezado] = parseBoolean(valor);
+      return;
+    }
+
+    if (encabezado === "fechaCreacion" || encabezado === "fechaActualizacion") {
+      color[encabezado] = valor instanceof Date ? valor.toISOString() : String(valor || "");
+      return;
+    }
+
+    color[encabezado] = String(valor || "");
+  });
+
+  return color;
+}
+
 function productoAFila(producto, encabezados, productoExistente) {
   const fechaActual = generarFechaISO();
   const existente = productoExistente || {};
@@ -331,6 +541,27 @@ function productoAFila(producto, encabezados, productoExistente) {
     return producto[encabezado] !== undefined && producto[encabezado] !== null
       ? producto[encabezado]
       : "";
+  });
+}
+
+function colorAFila(color, encabezados, colorExistente) {
+  const fechaActual = generarFechaISO();
+  const existente = colorExistente || {};
+
+  return encabezados.map(function (encabezado) {
+    if (encabezado === "fechaCreacion") {
+      return existente.fechaCreacion || color.fechaCreacion || fechaActual;
+    }
+
+    if (encabezado === "fechaActualizacion") {
+      return fechaActual;
+    }
+
+    if (encabezado === "activo") {
+      return color.activo !== undefined ? parseBoolean(color.activo) : true;
+    }
+
+    return color[encabezado] !== undefined && color[encabezado] !== null ? color[encabezado] : "";
   });
 }
 
@@ -393,6 +624,58 @@ function buscarFilaPorId(hoja, encabezados, id) {
   }
 
   return -1;
+}
+
+function buscarFilaPorCampo(hoja, encabezados, campo, valor) {
+  const indice = encabezados.indexOf(campo);
+
+  if (indice === -1) {
+    throw new Error('No se encontró la columna "' + campo + '".');
+  }
+
+  const ultimaFila = hoja.getLastRow();
+
+  if (ultimaFila < 2) {
+    return -1;
+  }
+
+  const valores = hoja.getRange(2, indice + 1, ultimaFila - 1, 1).getValues();
+  const valorBuscado = String(valor).trim();
+
+  for (let i = 0; i < valores.length; i += 1) {
+    if (String(valores[i][0]).trim() === valorBuscado) {
+      return i + 2;
+    }
+  }
+
+  return -1;
+}
+
+function buscarFilaColorPorIdOSlug(hoja, encabezados, idOSlug) {
+  const idNormalizado = String(idOSlug).trim();
+  const porId = buscarFilaPorCampo(hoja, encabezados, "id", idNormalizado);
+
+  if (porId !== -1) {
+    return porId;
+  }
+
+  return buscarFilaPorCampo(hoja, encabezados, "slug", generarSlugTexto(idNormalizado));
+}
+
+function validarHexColor(hex) {
+  return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(String(hex || "").trim());
+}
+
+function generarSlugTexto(texto) {
+  return String(texto || "")
+    .toLowerCase()
+    .replace(/\u00f1/g, "n")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 function validarToken(token) {

@@ -20,7 +20,7 @@ function deduplicarPorValue(opciones) {
 
   opciones.forEach((opcion) => {
     const value = opcion.value || opcion.id || opcion.label;
-    const key = normalizarTexto(value);
+    const key = generarSlug(value) || normalizarTexto(value);
 
     if (!mapa.has(key)) {
       mapa.set(key, { ...opcion, value });
@@ -30,12 +30,22 @@ function deduplicarPorValue(opciones) {
   return Array.from(mapa.values());
 }
 
-export function obtenerColoresDisponibles(productos = []) {
+export function obtenerColoresDisponibles(productos = [], coloresGlobales = []) {
+  const coloresBase = colores.map((color) => ({
+    id: color.id,
+    value: color.label,
+    label: color.label,
+  }));
+  const coloresGuardados = coloresGlobales.map((color) => ({
+    id: color.slug || color.id,
+    value: color.nombre || color.label || color.value,
+    label: color.nombre || color.label || color.value,
+  }));
   const coloresProductos = productos.flatMap((producto) =>
     producto.colores.map((color) => ({ id: crearSlug(color), value: color, label: color })),
   );
 
-  return ordenarPorLabel(deduplicarPorValue([...colores, ...coloresProductos]));
+  return ordenarPorLabel(deduplicarPorValue([...coloresBase, ...coloresGuardados, ...coloresProductos]));
 }
 
 export function obtenerTallesDisponibles(productos = []) {

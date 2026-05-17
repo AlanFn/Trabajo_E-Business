@@ -1,6 +1,7 @@
 import { ADMIN_API_TOKEN, PRODUCTOS_API_CONFIG } from "../config/apiConfig";
 import { products } from "../data/products";
 import { normalizarImagenUrl } from "../utils/imagenes";
+import { normalizarImagenesProducto } from "../utils/productoMedia";
 import { generarSlug } from "../utils/normalizarTexto";
 
 const STORAGE_KEY = "vtech_productos_simulados";
@@ -25,6 +26,9 @@ function clonarProducto(producto) {
     medidas: arraySeguro(producto.medidas),
     caracteristicas: arraySeguro(producto.caracteristicas),
     propiedades: arraySeguro(producto.propiedades),
+    precio: producto.precio || "",
+    imagenUrl: normalizarImagenUrl(producto.imagenUrl),
+    imagenes: arraySeguro(producto.imagenes),
   };
 }
 
@@ -62,9 +66,11 @@ function completarProducto(producto) {
     caracteristicas: arraySeguro(producto.caracteristicas),
     propiedades: arraySeguro(producto.propiedades),
     estadoStock: producto.estadoStock || "consultar",
+    precio: producto.precio || "",
     activo: producto.activo ?? true,
     destacado: producto.destacado ?? false,
     imagenUrl: normalizarImagenUrl(producto.imagenUrl),
+    imagenes: normalizarImagenesProducto(producto),
   };
 }
 
@@ -413,6 +419,11 @@ export async function editarProducto(id, datosActualizados) {
 
   if (Object.prototype.hasOwnProperty.call(datosPreparados, "imagenUrl")) {
     datosPreparados.imagenUrl = normalizarImagenUrl(datosPreparados.imagenUrl);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(datosPreparados, "imagenes")) {
+    datosPreparados.imagenes = normalizarImagenesProducto(datosPreparados);
+    datosPreparados.imagenUrl = datosPreparados.imagenes[0] || normalizarImagenUrl(datosPreparados.imagenUrl);
   }
 
   const productoActualizado = await obtenerDriver().editarProducto(id, datosPreparados);

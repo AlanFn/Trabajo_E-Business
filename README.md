@@ -1,6 +1,6 @@
 # V-TECH React
 
-Sitio frontend de V-TECH construido con React y Vite. Incluye las paginas Inicio/Nosotros, Catalogo, Contacto y el panel `/admin` para administrar productos.
+Sitio frontend de V-TECH construido con React y Vite. Incluye Inicio/Nosotros, Catalogo, Contacto y el panel `/admin` para administrar productos.
 
 ## Instalacion
 
@@ -47,11 +47,58 @@ El catalogo usa `src/services/productosService.js`. Puede funcionar en modo loca
 
 Los productos publicos se filtran por `activo === true`. Los productos ocultos siguen visibles en `/admin`, pero no aparecen en el catalogo publico.
 
-## Imagenes de productos
+## Campos de producto
 
-Las imagenes del catalogo se administran desde `/admin` mediante el campo `imagenUrl`. Se aceptan enlaces directos de imagen y enlaces compartidos de Google Drive; `src/utils/imagenes.js` normaliza URLs de Drive al formato de thumbnail.
+El modelo mantiene compatibilidad con productos antiguos que solo tienen `imagenUrl`.
 
-Si una imagen no carga, la card muestra el fallback `Sin imagen`.
+- `precio`: texto opcional. Si contiene un numero, el catalogo lo muestra como `Gs. 120.000`. Si esta vacio, muestra `Precio a consultar`.
+- `imagenUrl`: imagen principal o fallback para productos antiguos.
+- `imagenes`: lista de imagenes del producto. Si tiene elementos, el catalogo y el admin la usan como galeria. Si esta vacia, se usa `imagenUrl`.
+
+Todas las imagenes pasan por `normalizarImagenUrl`, que convierte enlaces compartidos de Google Drive a:
+
+```text
+https://drive.google.com/thumbnail?id=ID&sz=w700
+```
+
+## Google Sheets
+
+La hoja `productos` debe tener estas columnas:
+
+```text
+id, nombre, categoria, subcategoria, tipo, descripcionCorta, descripcionLarga,
+colores, talles, medidas, caracteristicas, propiedades, estadoStock, precio,
+activo, destacado, imagenUrl, imagenes, fechaCreacion, fechaActualizacion
+```
+
+Las columnas nuevas para esta etapa son:
+
+```text
+precio
+imagenes
+```
+
+Formato de `imagenes`: varias URLs separadas por `|`.
+
+```text
+https://drive.google.com/file/d/ID_1/view|https://drive.google.com/file/d/ID_2/view
+```
+
+Formato de `precio`: numero o texto simple. Recomendado:
+
+```text
+120000
+```
+
+## Carrito de consulta
+
+El catalogo usa un carrito persistente en `localStorage` con la clave:
+
+```text
+vtech_cart
+```
+
+Cada item guarda producto, imagen principal, precio, color, talle y cantidad. Si se agrega el mismo producto con el mismo color y talle, se suma cantidad. El drawer del carrito genera una unica consulta por WhatsApp con subtotales y total estimado cuando todos los productos tienen precio.
 
 ## Imagenes institucionales
 
@@ -84,12 +131,13 @@ Antes de produccion:
 - Reemplazar `ADMIN_API_TOKEN` en Apps Script por un token real y seguro.
 - Configurar el mismo token en `src/config/apiConfig.js`.
 - Configurar `PRODUCTOS_API_CONFIG.appsScriptUrl` con la URL publicada del Web App de Apps Script.
-- Verificar que la hoja `productos` tenga estas columnas:
-
-```text
-id, nombre, categoria, subcategoria, tipo, descripcionCorta, descripcionLarga,
-colores, talles, medidas, caracteristicas, propiedades, estadoStock, activo,
-destacado, imagenUrl, fechaCreacion, fechaActualizacion
-```
+- Agregar manualmente en Google Sheets las columnas `precio` e `imagenes`.
+- Copiar el contenido actualizado de `apps-script/productos.gs` en el editor de Apps Script.
+- Guardar el proyecto de Apps Script.
+- Ir a Deploy > Manage deployments.
+- Editar el Web App existente o crear una nueva version.
+- Seleccionar la nueva version y desplegar.
+- Mantener el acceso del Web App igual que el despliegue actual.
+- Si cambia la URL del Web App, actualizar `appsScriptUrl` en `src/config/apiConfig.js`.
 
 Apps Script soporta las acciones `listar`, `crear`, `editar`, `ocultar`, `reactivar` y `eliminarDefinitivo`, y devuelve respuestas JSON con `ok`, `producto`, `productos`, `id` o `error` segun corresponda.
