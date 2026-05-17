@@ -18,3 +18,36 @@ export function whatsappLink(productName, opciones = {}) {
 
   return `https://api.whatsapp.com/send/?phone=${whatsappPhoneNumber}&text=${encodeURIComponent(text)}&type=phone_number&app_absent=0&utm_source=ig`;
 }
+
+export function whatsappCartLink(items, resumen = {}) {
+  const lineas = [
+    "¡Hola! Quiero consultar por estos productos:",
+    "",
+    ...items.flatMap((item, index) => {
+      const detalles = [
+        `${index + 1}. ${item.nombre}`,
+        item.color ? `Color: ${item.color}` : null,
+        item.talle ? `Talle: ${item.talle}` : null,
+        `Cantidad: ${item.cantidad}`,
+        item.precioTexto ? `Precio unitario: ${item.precioTexto}` : "Precio unitario: Precio a consultar",
+        item.subtotalTexto ? `Subtotal: ${item.subtotalTexto}` : null,
+      ].filter(Boolean);
+
+      return [...detalles, ""];
+    }),
+  ];
+
+  if (resumen.totalTexto) {
+    lineas.push(`Total estimado: ${resumen.totalTexto}`);
+  } else if (resumen.totalParcialTexto) {
+    lineas.push(`Total parcial: ${resumen.totalParcialTexto}`);
+    lineas.push("Hay productos con precio a consultar.");
+  } else {
+    lineas.push("Precios a consultar.");
+  }
+
+  lineas.push("");
+  lineas.push("¿Me podrían confirmar disponibilidad y detalles?");
+
+  return `https://api.whatsapp.com/send/?phone=${whatsappPhoneNumber}&text=${encodeURIComponent(lineas.join("\n"))}&type=phone_number&app_absent=0&utm_source=cart`;
+}

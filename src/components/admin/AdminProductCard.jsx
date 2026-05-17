@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { categorias, subcategorias } from "../../data/categorias";
+import { obtenerImagenPrincipal } from "../../utils/productoMedia";
+import { formatearPrecioGs } from "../../utils/precios";
 
 function obtenerLabel(lista, id) {
   return lista.find((item) => item.id === id)?.label || id || "Sin definir";
@@ -15,17 +17,18 @@ export default function AdminProductCard({
 }) {
   const isProcessing = Boolean(actionType);
   const [imageError, setImageError] = useState(false);
+  const imagenPrincipal = obtenerImagenPrincipal(product);
 
   useEffect(() => {
     setImageError(false);
-  }, [product.imagenUrl]);
+  }, [product.imagenUrl, product.imagenes]);
 
   return (
     <article className={`admin-product-card${product.activo ? "" : " is-hidden"}`}>
       <div className="admin-product-card__image">
-        {product.imagenUrl && !imageError ? (
+        {imagenPrincipal && !imageError ? (
           <img
-            src={product.imagenUrl}
+            src={imagenPrincipal}
             alt={product.nombre}
             loading="lazy"
             decoding="async"
@@ -40,6 +43,7 @@ export default function AdminProductCard({
           <h3 className="product-card__name">{product.nombre}</h3>
           <p className="product-card__sub">{obtenerLabel(categorias, product.categoria)}</p>
           <p className="product-card__sub">{obtenerLabel(subcategorias, product.subcategoria)}</p>
+          <p className="product-card__sub">{formatearPrecioGs(product.precio)}</p>
         </div>
         <div className="admin-product-card__meta">
           <span className={`admin-pill${product.activo ? " admin-pill--active" : ""}`}>
